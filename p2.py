@@ -1,5 +1,6 @@
 import cv2
 from ultralytics import YOLO
+from ultralytics import solutions
 import time
 import pyttsx3
 
@@ -7,9 +8,9 @@ import asyncio
 
 speaking=False
 
-IP_URL="./p1.mp4"
+IP_URL="D:\Work\TestCamera/id4.mp4"
 # Load the YOLO model
-model = YOLO("yolov8n.pt")
+model = YOLO("yolo11n.pt")
 cap = cv2.VideoCapture(IP_URL)
 assert cap.isOpened(), "Error reading video file"
 w, h, fps = (int(cap.get(x)) for x in (cv2.CAP_PROP_FRAME_WIDTH, cv2.CAP_PROP_FRAME_HEIGHT, cv2.CAP_PROP_FPS))
@@ -19,6 +20,12 @@ KNOWN_WIDTH = 1.8  # Example width in meters
 
 # Focal length of the camera (calibrated)
 FOCAL_LENGTH = 800  # Example focal length in pixels
+
+# Video writer
+video_writer = cv2.VideoWriter("distance_calculation.avi", cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+
+# Init distance-calculation obj
+distance1 = solutions.DistanceCalculation(model="yolo11n.pt", show=True)
 
 async def texttospeech(strs):
     engine = pyttsx3.init()
@@ -41,6 +48,8 @@ while cap.isOpened():
             continue
         break
     results = model(im0)
+    im0 = distance1.calculate(im0)
+    video_writer.write(im0)
     for r in results:
         for box in r.boxes:
             cls = box.cls
@@ -56,35 +65,7 @@ while cap.isOpened():
                     asyncio.run(texttospeech(model.names[int(cls)]+" is too close"))
                     speaking=True
                     speak_gap=def_speak_gap
-    
-# # Load an image
-# image_path = r"015.jpg"
-# image = cv2.imread(image_path)
 
-# # Perform inference
-# results = model(image)
-
-
-# # Iterate through the results and calculate distances
-# for r in results:
-#     for box in r.boxes:
-#         cls = box.cls
-#         conf = box.conf
-#         if conf >= 0.5:
-#             print(box.xyxy)
-#             # Calculate the width of the bounding box in pixels
-#             box_width = box.xyxy[0][1] - box.xyxy[0][0]
-#             # Calculate the distance
-#             distance = (KNOWN_WIDTH * FOCAL_LENGTH) / box_width
-#             print(f"Object: {model.names[int(cls)]}, Distance: {distance:.2f} meters")
-#             if distance< 5:
-#                 texttospeech(model.names[int(cls)]+" is too close")
-#                 time.sleep(2)
-
-# # Display the image with bounding boxes and distances
-# for r in results:
-#     r.plot()
-# cv2.imshow("Image", image)
-# time.sleep(2)
-# #cv2.waitKey(0)
-# cv2.destroyAllWindows()
+cap.release()
+video_writer.release()
+cv2.destroyAllWindows()
